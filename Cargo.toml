@@ -1,0 +1,11 @@
+[package]
+name = "snake_rollback_example"
+version = "0.1.0"
+authors = ["James <jamescarterbell@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy_rollback = {path = "../bevy_rollback"}
+bevy = "0.4"
