@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 bevy_rollback = {path = "../bevy_rollback"}
-bevy = "0.4"
+bevy = {path = "../bevy"}

@@ -65,7 +65,7 @@ impl SnakeInput{
     }
 }
 
-pub fn read_input(mut map: ResMut<SnakeInput>, inputs: Res<Input<KeyCode>>){
+pub fn read_input(mut map: LResMut<SnakeInput>, inputs: Res<Input<KeyCode>>){
     let input = map.inputs.get_mut(0).unwrap();
     for (action, state) in input.iter_mut(){
         let key = match action{
@@ -121,7 +121,6 @@ impl Plugin for SnakeInputPlugin{
         app
             .add_logic_system_to_stage(logic_stages::LOGIC_POSTUPDATE, update_input_buffer.system())
             .add_system(read_input.system())
-            .add_resource(SnakeInput::new(1))
-            .override_resource::<SnakeInput>();
+            .override_resource(SnakeInput::new(1));
     }
 }

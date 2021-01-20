@@ -15,16 +15,22 @@ impl Plugin for SnakeLogic{
     }
 }
 
+#[derive(Reflect, Default)]
+#[reflect(Component)]
 pub struct SnakeHead{
     speed: i8,
     segments: Vec<Entity>,
     segments_added: i8,
 }
 
+#[derive(Reflect, Default)]
+#[reflect(Component)]
 pub struct Player{
     id: usize,
 }
 
+#[derive(Reflect, Default)]
+#[reflect(Component)]
 pub struct MoveDirection{
     direction: Vec2,
     boosted: bool,
@@ -34,30 +40,38 @@ pub struct MoveDirection{
 
 fn spawn_snake(
     commands: &mut Commands,
+    rollback_buffer: Res<RollbackBuffer>,
     sprites: Res<SnakeSpriteHandles>,
 ){
-    commands
-        .spawn(SpriteSheetBundle{
-            sprite: TextureAtlasSprite{
-                index: sprites.sprites[&SnakeSprites::RedHead],
+    let mut logic_commands = rollback_buffer.get_logic_commands_builder();
+    logic_commands
+        .commands
+        .spawn((
+            Transform{
+                translation: Vec3::zero(),
                 .. Default::default()
             },
-            texture_atlas: sprites.texture.clone(),
-            .. Default::default()
-        })
-        .with(SnakeHead{
-            speed: 1,
-            segments: Vec::new(),
-            segments_added: 0,
-        })
-        .with(Player{id: 0})
-        .with(MoveDirection{
+            SnakeHead{
+                speed: 1,
+                segments: Vec::new(),
+                segments_added: 0,
+            },
+            Player{id: 0},
+            MoveDirection{
             direction: Vec2::zero(),
             boosted: false,
             timer: 1,
-            frame: 0,
-        })
-        .with(RollbackTracked);
+            frame: 0,}));
+
+    {
+        let mut registry = rollback_buffer.logic_registry.write();
+        registry.register::<SnakeHead>();
+        registry.register::<Player>();
+        registry.register::<MoveDirection>();
+        registry.register::<Transform>();
+    }
+
+    commands.add_command(logic_commands.build());
 }
 
 fn change_move_direction(
@@ -88,16 +102,11 @@ fn move_snake(
     mut character: Query<(&mut Transform, &mut MoveDirection, &mut SnakeHead)>,
 ){
     for (mut transform, mut dir, head) in character.iter_mut(){
-        println!("Frame: {}", dir.frame);
         dir.frame += 1;
         if dir.timer <= 0{
             dir.timer = head.speed;
             let mut last_position = transform.translation;
             transform.translation += Vec3::from((dir.direction * 16.0, 0.0));
-
-            for segment in head.segments.iter(){
-                
-            }
         }
         else{
             dir.timer -= 1;
@@ -107,16 +116,14 @@ fn move_snake(
 }
 
 fn test_rollback(
-    input: Res<SnakeInput>,
-    mut rollback_buffer: ResMut<RollbackBuffer>,
+    input: LRes<SnakeInput>,
+    mut rollback_buffer: Res<RollbackBuffer>,
 ){
     if input.pressed(0, &Action::Boost){
-        println!("CHANGING PAST!");
         let frame = rollback_buffer.newest_frame - 20;
         rollback_buffer.past_frame_change(
             frame, 
             Box::new(|mut input: ResMut<SnakeInput>| {
-                println!("IN THE PAST!");
                 input.press(0, Action::Up);
             }).system()
         );
