@@ -14,6 +14,7 @@ fn main() {
     let app = App::build()
         .add_plugin(SnakeVisualsPlugin)
         .add_plugins(DefaultPlugins)
+        .add_plugin(bevy::sprite::SpritePlugin::default())
         .add_plugin(
             RollbackPlugin::with_buffer_size(60)
                 .with_run_criteria(FixedTimestep::steps_per_second(10.0))

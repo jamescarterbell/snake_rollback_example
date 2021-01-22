@@ -112,7 +112,6 @@ fn move_snake(
             dir.timer -= 1;
         }
     }
-
 }
 
 fn test_rollback(
