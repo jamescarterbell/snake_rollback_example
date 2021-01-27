@@ -8,4 +8,5 @@ edition = "2018"
 
 [dependencies]
 bevy_rollback = {path = "../bevy_rollback"}
+bevy_immediate_rendering = {path = "../bevy_immediate_rendering"}
 bevy = {path = "../bevy"}
