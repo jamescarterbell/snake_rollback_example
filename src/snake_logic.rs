@@ -52,7 +52,7 @@ fn spawn_snake(
                 .. Default::default()
             },
             SnakeHead{
-                speed: 1,
+                speed: 10,
                 segments: Vec::new(),
                 segments_added: 0,
             },

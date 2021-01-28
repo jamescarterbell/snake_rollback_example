@@ -1,11 +1,11 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::visible_entities_system};
 use bevy::render::pass::ClearColor;
 use bevy::render::camera::Camera;
-use bevy::render::texture::SamplerDescriptor;
+use bevy::render::draw::DrawContext;
+use bevy::render::texture::{SamplerDescriptor, TextureDescriptor, TextureUsage};
 use std::collections::HashMap;
 use bevy_rollback::LQuery;
 use crate::{MoveDirection, SnakeHead, Player};
-use bevy_immediate_rendering::SpriteAtlasDrawer;
 
 pub mod stage{
     pub const LOAD_ASSETS: &str = "load_assets";
@@ -87,18 +87,42 @@ fn setup(
                 sampler: SamplerDescriptor::default(),
             }
         )
-        .spawn(Camera2dBundle::default());  
+        .spawn(Camera2dBundle::default());
+}
+
+struct VisualComponent{
+    drawn: bool,
 }
 
 fn draw_snake(
+    commands: &mut Commands,
+    mut visuals: Query<(Entity, &mut VisualComponent)>,
     characters: LQuery<(&Transform, &SnakeHead, &Player, &MoveDirection)>,
-    cam: Query<(&Camera, &Transform)>,
     sprite_handles: Res<SnakeSpriteHandles>,
-    mut sprite_atlas_drawer: SpriteAtlasDrawer,
 ){
-    for (cam, cam_transform) in cam.iter(){
-        for (transform, head, player, dir) in characters.iter(){
-            sprite_atlas_drawer.draw(transform, cam_transform, cam, &sprite_handles.texture, *sprite_handles.sprites.get(&SnakeSprites::RedHead).unwrap(), Color::rgb(1.0, 1.0, 1.0), &sprite_handles.sampler);
+    for (entity, mut visual) in visuals.iter_mut(){
+        if visual.drawn{
+            println!(":)");
+            commands.despawn(entity);
         }
+        else{
+            visual.drawn = true;
+        }
+    }
+    for (transform, head, player, dir) in characters.iter(){
+        commands.spawn(
+            SpriteSheetBundle{
+                sprite: TextureAtlasSprite{
+                    index: *sprite_handles.sprites.get(&SnakeSprites::RedHead).unwrap(),
+                    color: Color::rgb(1.0, 1.0, 1.0),
+                },
+                texture_atlas: sprite_handles.texture.clone(),
+                global_transform: GlobalTransform::from(transform.clone()),
+                ..Default::default()
+            }
+        )
+        .with(VisualComponent{
+            drawn: false,
+        });
     }
 }
