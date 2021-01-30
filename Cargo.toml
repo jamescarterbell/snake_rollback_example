@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 bevy_rollback = {path = "../bevy_rollback"}
 bevy = {path = "../bevy"}
+rand = "0.8.3"

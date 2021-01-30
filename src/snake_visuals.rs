@@ -3,9 +3,9 @@ use bevy::render::pass::ClearColor;
 use bevy::render::camera::Camera;
 use bevy::render::draw::DrawContext;
 use bevy::render::texture::{SamplerDescriptor, TextureDescriptor, TextureUsage};
-use std::collections::HashMap;
+use std::{collections::HashMap, num};
 use bevy_rollback::LQuery;
-use crate::{MoveDirection, SnakeHead, Player};
+use crate::{MoveDirection, Player, SnakeHead, snake_logic::{Food, DoubleFood}};
 
 pub mod stage{
     pub const LOAD_ASSETS: &str = "load_assets";
@@ -98,22 +98,69 @@ fn draw_snake(
     commands: &mut Commands,
     mut visuals: Query<(Entity, &mut VisualComponent)>,
     characters: LQuery<(&Transform, &SnakeHead, &Player, &MoveDirection)>,
+    food: LQuery<(&Transform, &Food)>,
+    double_food: LQuery<(&Transform, &DoubleFood)>,
     sprite_handles: Res<SnakeSpriteHandles>,
 ){
     for (entity, mut visual) in visuals.iter_mut(){
         if visual.drawn{
-            println!(":)");
             commands.despawn(entity);
         }
         else{
             visual.drawn = true;
         }
     }
+
     for (transform, head, player, dir) in characters.iter(){
+        let dir = dir.direction.clone();
+        let mut transform = transform.clone();
+        
+        transform.rotation = match dir {
+            val if val.y > 0.0 => Quat::from_rotation_z(0.0),
+            val if val.x < 0.0 => Quat::from_rotation_z(0.5 * std::f32::consts::PI),
+            val if val.y < 0.0 => Quat::from_rotation_z(std::f32::consts::PI),
+            val if val.x > 0.0 => Quat::from_rotation_z(1.5 * std::f32::consts::PI),
+            _ => Quat::identity(),
+        };
+
         commands.spawn(
             SpriteSheetBundle{
                 sprite: TextureAtlasSprite{
                     index: *sprite_handles.sprites.get(&SnakeSprites::RedHead).unwrap(),
+                    color: Color::rgb(1.0, 1.0, 1.0),
+                },
+                texture_atlas: sprite_handles.texture.clone(),
+                global_transform: GlobalTransform::from(transform),
+                ..Default::default()
+            }
+        )
+        .with(VisualComponent{
+            drawn: false,
+        });
+    }
+
+    for (transform, food) in food.iter(){
+        commands.spawn(
+            SpriteSheetBundle{
+                sprite: TextureAtlasSprite{
+                    index: *sprite_handles.sprites.get(&SnakeSprites::Orange).unwrap(),
+                    color: Color::rgb(1.0, 1.0, 1.0),
+                },
+                texture_atlas: sprite_handles.texture.clone(),
+                global_transform: GlobalTransform::from(transform.clone()),
+                ..Default::default()
+            }
+        )
+        .with(VisualComponent{
+            drawn: false,
+        });
+    }
+
+    for (transform, food) in double_food.iter(){
+        commands.spawn(
+            SpriteSheetBundle{
+                sprite: TextureAtlasSprite{
+                    index: *sprite_handles.sprites.get(&SnakeSprites::Cherry).unwrap(),
                     color: Color::rgb(1.0, 1.0, 1.0),
                 },
                 texture_atlas: sprite_handles.texture.clone(),

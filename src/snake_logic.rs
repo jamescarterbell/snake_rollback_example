@@ -1,7 +1,11 @@
+use std::collections::HashSet;
+
 use bevy_rollback::*;
 use bevy::prelude::*;
 use super::snake_visuals::*;
 use super::snake_input::*;
+use rand::{rngs::ThreadRng, thread_rng};
+use rand::Rng;
 
 pub struct SnakeLogic;
 
@@ -11,7 +15,15 @@ impl Plugin for SnakeLogic{
             .add_startup_system(spawn_snake.system())
             .add_logic_system(change_move_direction.system())
             .add_logic_system(move_snake.system())
-            .add_system(test_rollback.system());
+            .add_logic_system(food_spawner.system())
+            .track_resource(FoodCounter{
+                food_count: 0,
+                current_food: 0,
+                food_positions: HashSet::new()
+            })
+            .track_resource(Rand{
+                rand: thread_rng(),
+            });
     }
 }
 
@@ -32,10 +44,11 @@ pub struct Player{
 #[derive(Reflect, Default)]
 #[reflect(Component)]
 pub struct MoveDirection{
-    direction: Vec2,
+    pub direction: Vec2,
     boosted: bool,
     timer: i8,
     frame: u128,
+    boost: i8,
 }
 
 fn spawn_snake(
@@ -61,7 +74,9 @@ fn spawn_snake(
             direction: Vec2::zero(),
             boosted: false,
             timer: 1,
-            frame: 0,}));
+            frame: 0,
+            boost: 10,
+        }));
 
     {
         let mut registry = rollback_buffer.logic_registry.write();
@@ -69,6 +84,8 @@ fn spawn_snake(
         registry.register::<Player>();
         registry.register::<MoveDirection>();
         registry.register::<Transform>();
+        registry.register::<Food>();
+        registry.register::<DoubleFood>();
     }
 
     commands.add_command(logic_commands.build());
@@ -109,22 +126,70 @@ fn move_snake(
             transform.translation += Vec3::from((dir.direction * 16.0, 0.0));
         }
         else{
-            dir.timer -= 1;
+            if dir.boost == 0 && dir.boosted{
+                dir.boosted = false;
+            }
+            dir.timer -= if dir.boosted {2} else {1};
+            dir.boost -= if dir.boosted {1} else {0};
         }
     }
 }
 
-fn test_rollback(
-    input: LRes<SnakeInput>,
-    mut rollback_buffer: Res<RollbackBuffer>,
+#[derive(Clone)]
+struct Rand{
+    rand: ThreadRng,
+}
+
+unsafe impl Send for Rand{}
+unsafe impl Sync for Rand{}
+
+
+#[derive(Reflect, Default)]
+#[reflect(Component)]
+pub struct Food;
+
+#[derive(Reflect, Default)]
+#[reflect(Component)]
+pub struct DoubleFood;
+
+#[derive(Clone)]
+pub struct FoodCounter{
+    food_count: u32,
+    current_food: u8,
+    food_positions: HashSet<(i32, i32)>,
+}
+
+fn food_spawner(
+    commands: &mut Commands,
+    mut current_food: ResMut<FoodCounter>,
+    mut rand: ResMut<Rand>,
 ){
-    if input.pressed(0, &Action::Boost){
-        let frame = rollback_buffer.newest_frame - 20;
-        rollback_buffer.past_frame_change(
-            frame, 
-            Box::new(|mut input: ResMut<SnakeInput>| {
-                input.press(0, Action::Up);
-            }).system()
-        );
+    while current_food.current_food < std::cmp::max((current_food.food_count as f64).log2() as u8, 1){
+        let pos = loop{
+            let pos = Vec2::new(rand.rand.gen_range(-20..20) as f32, rand.rand.gen_range(-20..20) as f32);
+            if !current_food.food_positions.contains(&(pos.x as i32, pos.y as i32)){
+                current_food.food_positions.insert((pos.x as i32, pos.y as i32));
+                break pos;
+            }
+        };
+
+        if 1 == rand.rand.gen::<u8>() & 1{
+            commands.spawn((
+                Food,
+                Transform{
+                    translation: Vec3::from((pos, 0.0)),
+                    .. Default::default()
+                }));
+        }
+        else{
+            commands.spawn((
+                Food,
+                Transform{
+                    translation: Vec3::from((pos, 0.0)),
+                    .. Default::default()
+                }));
+        }
+        println!("SUCKING PP");
+        current_food.current_food += 1;
     }
 }
